@@ -61,7 +61,8 @@ let rec street_in_path from to_ path =
   | _ :: tail -> street_in_path from to_ tail
 ;;
 
-let global_visited  : (int * int, unit) Hashtbl.t= Hashtbl.create 1000
+let global_visited  : (int * int, int) Hashtbl.t= Hashtbl.create 1000
+let global_visited_edges  : (int, int) Hashtbl.t= Hashtbl.create 1000
 
 let in_any_other x y =
     Hashtbl.mem global_visited (x, y)
@@ -81,12 +82,13 @@ let nearer_or_farer f f2 f3 problem streets path curr =
   let square_distance (x1, y1) (x2, y2) =
     (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2)
   in*)
-  let weighted = List.map (fun ((i, _, length) as x) -> 
+  let weighted = List.map (fun ((i, time, length) as x) -> 
       if List.mem i path then 
-        f2 length, x 
+        f2 time length, x 
       else if in_any_other curr i then 
-        f3 length, x
-      else length, x
+        let score = Hashtbl.find global_visited_edges i in
+        f3 score time length, x
+      else length * time, x
     ) targets
   in
   let sorted = List.sort (fun (x1, _) (x2, _) -> compare x1 x2) weighted in
@@ -96,16 +98,27 @@ let nearer_or_farer f f2 f3 problem streets path curr =
 let nearer_next problem streets path curr = 
   nearer_or_farer (fun x -> x) (fun l -> l * 10) problem streets path curr *)
 let farer_next problem streets path curr = 
-  nearer_or_farer (fun x -> List.rev x) (fun l -> l / 100) (fun l -> l / 10000) 
+  nearer_or_farer (fun x -> List.rev x) (fun t l -> l / (10000 * t)) 
+    (fun t l score -> l / (1000 * score * score * t)) 
       problem streets path curr 
 
+let rise_global_visited_score (x, y) =
+  try
+    let old_score = Hashtbl.find global_visited_edges x in
+    Hashtbl.replace global_visited_edges x (old_score + 1)
+  with Not_found -> 
+    Hashtbl.add global_visited_edges x 0
+;;
+  
+  
 
 let random_path problem =
   let rec random_path vid round path1 path2 length time curr1 curr2 last_good =    
     try
       let next = 
-        if round > 1000 * vid then farer_next problem 
-        else random_next problem
+        if round > 4000 then begin
+          if vid mod 2 = 0 then farer_next problem else random_next problem
+        end else random_next problem
   (*      if vid mod 2 = 0 then nearer_next problem *)
   (*      if vid mod 3 = 0 then farer_next problem
         else random_next problem *)
@@ -114,12 +127,12 @@ let random_path problem =
       let (next2, time2, length2) = next problem.rev_streets path2 curr2 in
       let total_time = time1 + time2 + time in
       let length1 = if in_any_other curr1 next1 then 0 else length1 in
-      let length2 = if in_any_other curr2 next2 then 0 else length2 in
+      let length2 = if in_any_other next2 curr2 then 0 else length2 in
       let total_length = length1 + length2 + length in
-(*      if not @@ Hashtbl.mem global_visited (curr1, next1) then
-        Hashtbl.add global_visited (curr1, next1) ();
-      if not @@ Hashtbl.mem global_visited (next2, curr2) then
-        Hashtbl.add global_visited (next2, curr2) (); *)
+      rise_global_visited_score (curr1, next1);
+      rise_global_visited_score (next2, curr2);
+      (*if not @@ Hashtbl.mem global_visited (next2, curr2) then
+        Hashtbl.add global_visited (next2, curr2) ();  *)
       let path1 = next1 :: path1 in
       let path2 = next2 :: path2 in
       if total_time > problem.time then
@@ -170,7 +183,7 @@ let _ =
       List.iter (fun (to_, time_cost, length) ->
         Printf.printf "street : %d %d 1 %d %d\n" from to_ time_cost length) tos)
     problem.streets; *)
-  Random.init 42;
+  Random.init 45;
   let good_ones = Array.create 8 (0, [problem.start]) in
   let good_size = ref 0 in
   for i = 0 to 10000 do
@@ -187,16 +200,19 @@ let _ =
       Format.printf "good : %d@." length
     end;
 
-    Hashtbl.clear global_visited;
-    let rec fill_global path =
-      match path with
-      | [] -> ()
-      | _ :: [] -> ()
-      | x1 :: x2 :: tail -> 
-        Hashtbl.add global_visited (x1, x2) ();
-        fill_global (x2 :: tail)
-    in
-    Array.iter (fun (l, x) -> fill_global x) good_ones; 
+    if i mod 10 = 0 then 
+      Hashtbl.clear global_visited;
+      let rec fill_global path =
+        match path with
+        | [] -> ()
+        | _ :: [] -> ()
+        | x1 :: x2 :: tail -> 
+          Hashtbl.add global_visited (x1, x2) 1;
+          rise_global_visited_score (x1, x2);
+          fill_global (x2 :: tail)
+      in
+      Array.iter (fun (l, x) -> fill_global x) good_ones
+    
 (*    if i mod 200 = 0 then Hashtbl.clear global_visited *)
     (* Printf.printf "total >>>> %d\n" length *)
   done;
