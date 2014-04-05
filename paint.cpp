@@ -66,12 +66,30 @@ int main()
     for(int j=1; j < l-1; ++j)
     {
       int takens = 0;
-      for(int h=0; h < 9; ++h){
-        int y = i+y_shift[h];
-        int x = j+x_shift[h]; 
+      for(int kkk=0; kkk < 9; ++kkk){
+        int y = i+y_shift[kkk];
+        int x = j+x_shift[kkk]; 
         if(m[y][x] == 1 && !draws[y][x]) ++takens;
       }
-      if(takens > 9/2){
+      int takens2 = 0;
+      if(i > 1 && i < h-2 && j > 1 && j < l-1){
+      for(int kkk=0; kkk < 9; ++kkk){
+        for(int g=1; g <= 2; ++g){
+        int y = i+y_shift[kkk]*g;
+        int x = j+x_shift[kkk]*g; 
+        if(m[y][x] == 1 && !draws[y][x]) ++takens2;
+      }}}
+
+      if(takens2 > 25/2){
+                print_square(i, j, 2);
+        for(int g=1; g <= 2; ++g){
+        int y = i+y_shift[h]*g;
+        int x = j+x_shift[h]*g; 
+          draws[y][x] = true;
+        }
+      }
+
+      else if(takens > 9/2){
         print_square(i, j, 1);
         for(int h=0; h < 9; ++h){
           int y = i+y_shift[h];
