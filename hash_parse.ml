@@ -28,7 +28,7 @@ let task1_parse input empty_item parse_item =
   x, y, result
 ;; 
 
-let task2_parse input parse_inter parse_street parse_params = 
+let task2_parse input parse_inter parse_street = 
   let (inters :: streets :: time :: cars :: start :: _) =
     List.map int_of_string Str.(split (regexp " ") @@ input_line input)
   in
